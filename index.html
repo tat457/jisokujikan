@@ -1,0 +1,891 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SpeedRoute - はじき計算＆答え合わせ学習ツール</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Vue 3 CDN -->
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#eff6ff',
+                            100: '#dbeafe',
+                            500: '#3b82f6',
+                            600: '#2563eb',
+                            700: '#1d4ed8',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;500;700;800&family=Noto+Sans+JP:wght@400;500;700&display=swap');
+        body {
+            font-family: 'M PLUS Rounded 1c', 'Noto Sans JP', sans-serif;
+        }
+        [v-cloak] { display: none; }
+    </style>
+</head>
+<body class="bg-slate-100 text-slate-800 min-h-screen py-6 px-3 sm:px-6">
+    <div id="app" v-cloak class="max-w-5xl mx-auto">
+        
+        <!-- ヘッダー -->
+        <header class="mb-6 text-center sm:text-left flex flex-col sm:flex-row justify-between items-center gap-4 bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
+            <div class="flex items-center gap-3">
+                <div class="w-12 h-12 bg-gradient-to-tr from-amber-500 to-orange-500 text-white rounded-xl flex items-center justify-center text-2xl shadow-md shadow-orange-500/20">
+                    <i class="fa-solid fa-graduation-cap"></i>
+                </div>
+                <div>
+                    <h1 class="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">SpeedRoute 算数ナビ</h1>
+                    <p class="text-xs text-slate-500 font-bold">出発地・目的地の距離自動検索 ＆ み・は・じ答え合わせ学習</p>
+                </div>
+            </div>
+            
+            <!-- メインモード切替 -->
+            <div class="flex bg-slate-100 p-1 rounded-xl text-xs font-bold border border-slate-200">
+                <button @click="mainMode = 'student'" 
+                    :class="mainMode === 'student' ? 'bg-amber-500 text-white shadow' : 'text-slate-600 hover:text-slate-900'"
+                    class="px-4 py-2 rounded-lg transition-all flex items-center gap-1.5">
+                    <i class="fa-solid fa-user-graduate"></i> 生徒用（問題・答え合わせ）
+                </button>
+                <button @click="mainMode = 'calculator'" 
+                    :class="mainMode === 'calculator' ? 'bg-blue-600 text-white shadow' : 'text-slate-600 hover:text-slate-900'"
+                    class="px-4 py-2 rounded-lg transition-all flex items-center gap-1.5">
+                    <i class="fa-solid fa-route"></i> 実用（地図ルート検索）
+                </button>
+            </div>
+        </header>
+
+        <!-- ========================================================= -->
+        <!-- モード1：生徒用 答え合わせ & 問題ドリル                      -->
+        <!-- ========================================================= -->
+        <div v-if="mainMode === 'student'" class="space-y-6">
+            
+            <!-- タブ切替 (何を求める問題か) -->
+            <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200">
+                <div class="flex flex-col sm:flex-row items-center justify-between gap-3 mb-3">
+                    <span class="text-xs font-bold text-slate-500 flex items-center gap-1">
+                        <i class="fa-solid fa-circle-question text-amber-500"></i> 解きたい問題の種類を選んでね：
+                    </span>
+                    <button @click="generateRandomProblem" class="w-full sm:w-auto text-xs font-bold text-amber-800 bg-amber-100 hover:bg-amber-200 px-3 py-2 rounded-xl transition flex items-center justify-center gap-1.5 border border-amber-300">
+                        <i class="fa-solid fa-dice text-amber-600"></i> 練習問題を自動で作る！
+                    </button>
+                </div>
+                
+                <div class="grid grid-cols-3 gap-2">
+                    <button @click="setProblemType('arrival')" 
+                        :class="form.mode === 'arrival' ? 'bg-amber-500 text-white shadow-md' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'"
+                        class="py-3 px-2 rounded-xl font-bold text-xs sm:text-sm transition text-center flex flex-col sm:flex-row items-center justify-center gap-2">
+                        <i class="fa-solid fa-flag-checkered text-lg"></i>
+                        <span>① 出発時間を求める</span>
+                    </button>
+                    <button @click="setProblemType('departure')" 
+                        :class="form.mode === 'departure' ? 'bg-amber-500 text-white shadow-md' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'"
+                        class="py-3 px-2 rounded-xl font-bold text-xs sm:text-sm transition text-center flex flex-col sm:flex-row items-center justify-center gap-2">
+                        <i class="fa-solid fa-location-dot text-lg"></i>
+                        <span>② 到着時間を求める</span>
+                    </button>
+                    <button @click="setProblemType('speed')" 
+                        :class="form.mode === 'speed' ? 'bg-amber-500 text-white shadow-md' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'"
+                        class="py-3 px-2 rounded-xl font-bold text-xs sm:text-sm transition text-center flex flex-col sm:flex-row items-center justify-center gap-2">
+                        <i class="fa-solid fa-gauge-high text-lg"></i>
+                        <span>③ 必要な時速を求める</span>
+                    </button>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                
+                <!-- 左側：問題文・出発地到着地の指定・自分の答え入力 -->
+                <div class="lg:col-span-6 space-y-5">
+                    
+                    <!-- 生成された問題カード -->
+                    <div class="bg-gradient-to-br from-amber-50 to-orange-50 border-2 border-amber-200 p-5 rounded-2xl shadow-sm relative overflow-hidden">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="bg-amber-500 text-white text-[11px] font-bold px-2.5 py-0.5 rounded-full">
+                                📝 今解いている問題
+                            </span>
+                            <span class="text-xs font-bold text-amber-800">み・は・じ の問題</span>
+                        </div>
+                        
+                        <p class="text-sm font-bold text-slate-800 leading-relaxed my-2 bg-white/90 p-3.5 rounded-xl border border-amber-200/80 shadow-inner">
+                            {{ generatedProblemText }}
+                        </p>
+
+                        <!-- 出発地・到着地と距離の自動設定エリア -->
+                        <div class="mt-4 p-3.5 bg-white rounded-xl border border-amber-300 shadow-sm space-y-3">
+                            <div class="flex items-center justify-between border-b border-amber-100 pb-2">
+                                <span class="text-xs font-black text-amber-900 flex items-center gap-1.5">
+                                    <i class="fa-solid fa-map-location-dot text-amber-600"></i> 場所・時速・距離の指定
+                                </span>
+                                <span class="text-[10px] bg-amber-100 text-amber-800 font-bold px-2 py-0.5 rounded">
+                                    距離の自動計算機能つき
+                                </span>
+                            </div>
+                            
+                            <!-- 場所と時速の入力フィールド -->
+                            <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
+                                <div>
+                                    <label class="font-bold text-slate-600 block mb-1">📍 出発地</label>
+                                    <input type="text" v-model="form.originName" @blur="onLocationInputBlur" placeholder="例: 東京駅, 学校" 
+                                        class="w-full p-2.5 border border-slate-300 rounded-lg font-bold bg-slate-50 focus:bg-white focus:ring-2 focus:ring-amber-400 focus:outline-none">
+                                </div>
+                                <div>
+                                    <label class="font-bold text-slate-600 block mb-1">🏁 到着地（目的地）</label>
+                                    <input type="text" v-model="form.destinationName" @blur="onLocationInputBlur" placeholder="例: 横浜駅, 公園" 
+                                        class="w-full p-2.5 border border-slate-300 rounded-lg font-bold bg-slate-50 focus:bg-white focus:ring-2 focus:ring-amber-400 focus:outline-none">
+                                </div>
+                                <div>
+                                    <label class="font-bold text-slate-600 block mb-1">🚀 移動の時速 (km/h)</label>
+                                    <input v-if="form.mode !== 'speed'" type="number" v-model.number="form.speed" min="1" step="1" @input="isEvaluated = false" placeholder="例: 15" 
+                                        class="w-full p-2.5 border border-amber-300 rounded-lg font-black bg-amber-50/50 text-amber-900 focus:bg-white focus:ring-2 focus:ring-amber-400 focus:outline-none">
+                                    <div v-else class="p-2.5 bg-slate-100 rounded-lg text-slate-500 font-bold text-[11px] text-center border border-slate-200">
+                                        ※求める対象のため自動計算
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- 移動手段クイックプリセット (時速選択) -->
+                            <div v-if="form.mode !== 'speed'" class="pt-1 flex items-center gap-1.5 flex-wrap text-[11px]">
+                                <span class="font-bold text-slate-500">時速のクイック設定:</span>
+                                <button @click="form.speed = 4; isEvaluated = false" class="bg-slate-100 hover:bg-amber-100 text-slate-700 px-2 py-0.5 rounded font-bold border border-slate-200 transition">🚶‍♂️ 徒歩 (4km/h)</button>
+                                <button @click="form.speed = 15; isEvaluated = false" class="bg-slate-100 hover:bg-amber-100 text-slate-700 px-2 py-0.5 rounded font-bold border border-slate-200 transition">🚲 自転車 (15km/h)</button>
+                                <button @click="form.speed = 40; isEvaluated = false" class="bg-slate-100 hover:bg-amber-100 text-slate-700 px-2 py-0.5 rounded font-bold border border-slate-200 transition">🚗 自動車 (40km/h)</button>
+                                <button @click="form.speed = 80; isEvaluated = false" class="bg-slate-100 hover:bg-amber-100 text-slate-700 px-2 py-0.5 rounded font-bold border border-slate-200 transition">🚆 電車 (80km/h)</button>
+                            </div>
+
+                            <!-- 距離自動計算アクションボタン ＆ 結果表示 -->
+                            <div class="flex flex-col sm:flex-row items-center gap-2 pt-1">
+                                <button @click="searchDistance" :disabled="isSearchingDistance"
+                                    class="w-full sm:w-auto px-4 py-2.5 bg-amber-500 hover:bg-amber-600 active:scale-95 text-white font-bold text-xs rounded-xl transition shadow flex items-center justify-center gap-1.5 disabled:opacity-50">
+                                    <i class="fa-solid fa-arrows-rotate" :class="{'fa-spin': isSearchingDistance}"></i>
+                                    <span>{{ isSearchingDistance ? '距離を調べ中...' : '指定した場所の距離を自動取得' }}</span>
+                                </button>
+                                
+                                <div class="text-xs font-bold text-amber-900 bg-amber-50 px-3 py-2 rounded-xl border border-amber-300 flex-1 text-center w-full">
+                                    自動取得距離: <span class="text-base font-black text-amber-700">{{ form.distance }}</span> km
+                                </div>
+                            </div>
+
+                            <!-- ステータスメッセージ / エラー -->
+                            <p v-if="distanceSuccessMsg" class="text-xs font-bold text-emerald-700 bg-emerald-50 p-2 rounded-lg border border-emerald-200 flex items-center gap-1.5">
+                                <i class="fa-solid fa-circle-check"></i> {{ distanceSuccessMsg }}
+                            </p>
+                            <p v-if="searchError" class="text-xs font-bold text-rose-600 bg-rose-50 p-2 rounded-lg border border-rose-200 flex items-center gap-1.5">
+                                <i class="fa-solid fa-circle-exclamation"></i> {{ searchError }}
+                            </p>
+
+                            <!-- おすすめの組み合わせ（ワンタップ入力） -->
+                            <div class="pt-2 border-t border-amber-100">
+                                <span class="text-[11px] font-bold text-slate-500 block mb-1">よく使われる場所のセット（タップで入力）:</span>
+                                <div class="flex flex-wrap gap-1.5">
+                                    <button @click="applyPreset('学校', '市民公園', 3)" class="text-[11px] bg-slate-100 hover:bg-amber-100 text-slate-700 hover:text-amber-900 px-2.5 py-1 rounded-md font-bold border border-slate-200 transition">
+                                        🏫 学校 ➔ 🏞️ 公園 (3km)
+                                    </button>
+                                    <button @click="applyPreset('自宅', '中央図書館', 6)" class="text-[11px] bg-slate-100 hover:bg-amber-100 text-slate-700 hover:text-amber-900 px-2.5 py-1 rounded-md font-bold border border-slate-200 transition">
+                                        🏠 家 ➔ 📚 図書館 (6km)
+                                    </button>
+                                    <button @click="applyPreset('東京駅', '横浜駅', 28.5)" class="text-[11px] bg-slate-100 hover:bg-amber-100 text-slate-700 hover:text-amber-900 px-2.5 py-1 rounded-md font-bold border border-slate-200 transition">
+                                        🚅 東京駅 ➔ 横浜駅 (28.5km)
+                                    </button>
+                                    <button @click="applyPreset('新宿駅', '箱根湯本駅', 85)" class="text-[11px] bg-slate-100 hover:bg-amber-100 text-slate-700 hover:text-amber-900 px-2.5 py-1 rounded-md font-bold border border-slate-200 transition">
+                                        ⛰️ 新宿 ➔ 箱根 (85km)
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 数値の直接調整アコーディオン -->
+                        <details class="mt-3 group">
+                            <summary class="text-xs font-bold text-amber-800 cursor-pointer flex items-center gap-1 hover:text-amber-900 select-none">
+                                <i class="fa-solid fa-sliders text-amber-600"></i> 数値を自分で直接変更してテストする
+                            </summary>
+                            <div class="mt-3 p-3 bg-white rounded-xl border border-amber-200 space-y-3 text-xs">
+                                <div class="grid grid-cols-2 gap-2">
+                                    <div>
+                                        <label class="font-bold text-slate-600">距離 (km)</label>
+                                        <input type="number" v-model.number="form.distance" min="0.1" step="0.5" @input="isEvaluated = false"
+                                            class="w-full mt-1 p-2 border border-slate-200 rounded-lg font-bold">
+                                    </div>
+                                    <div v-if="form.mode !== 'speed'">
+                                        <label class="font-bold text-slate-600">時速 (km/h)</label>
+                                        <input type="number" v-model.number="form.speed" min="1" step="1" @input="isEvaluated = false"
+                                            class="w-full mt-1 p-2 border border-slate-200 rounded-lg font-bold">
+                                    </div>
+                                </div>
+                                
+                                <div v-if="form.mode === 'arrival'">
+                                    <label class="font-bold text-slate-600">目標の到着時刻</label>
+                                    <input type="time" v-model="form.targetArrivalTime" @change="isEvaluated = false"
+                                        class="w-full mt-1 p-2 border border-slate-200 rounded-lg font-bold">
+                                </div>
+                                <div v-if="form.mode === 'departure' || form.mode === 'speed'">
+                                    <label class="font-bold text-slate-600">出発時刻</label>
+                                    <input type="time" v-model="form.targetDepartureTime" @change="isEvaluated = false"
+                                        class="w-full mt-1 p-2 border border-slate-200 rounded-lg font-bold">
+                                </div>
+                                <div v-if="form.mode === 'speed'">
+                                    <label class="font-bold text-slate-600">希望の到着時刻</label>
+                                    <input type="time" v-model="form.targetArrivalTime" @change="isEvaluated = false"
+                                        class="w-full mt-1 p-2 border border-slate-200 rounded-lg font-bold">
+                                </div>
+
+                                <div class="grid grid-cols-2 gap-2">
+                                    <div>
+                                        <label class="font-bold text-slate-600">途中休憩 (分)</label>
+                                        <input type="number" v-model.number="form.restMinutes" min="0" step="5" @input="isEvaluated = false"
+                                            class="w-full mt-1 p-2 border border-slate-200 rounded-lg font-bold">
+                                    </div>
+                                    <div>
+                                        <label class="font-bold text-slate-600">準備ゆとり (分)</label>
+                                        <input type="number" v-model.number="form.prepMinutes" min="0" step="5" @input="isEvaluated = false"
+                                            class="w-full mt-1 p-2 border border-slate-200 rounded-lg font-bold">
+                                    </div>
+                                </div>
+                            </div>
+                        </details>
+                    </div>
+
+                    <!-- 生徒解答入力エリア -->
+                    <div class="bg-white p-5 rounded-2xl shadow-sm border-2 border-indigo-200 space-y-4">
+                        <h2 class="text-sm font-black text-indigo-900 flex items-center gap-2 border-b border-indigo-100 pb-2">
+                            <i class="fa-solid fa-pen-to-square text-indigo-600"></i> 自分の手計算した答えと式を入力しよう
+                        </h2>
+
+                        <!-- 到着/出発時刻の予想入力 -->
+                        <div v-if="form.mode === 'arrival' || form.mode === 'departure'">
+                            <label class="block text-xs font-extrabold text-slate-700 mb-1">
+                                <i class="fa-regular fa-clock text-indigo-500 mr-1"></i>
+                                あなたが計算した{{ form.mode === 'arrival' ? '【出発時刻】' : '【到着時刻】' }}
+                            </label>
+                            <div class="flex items-center gap-2">
+                                <input type="time" v-model="student.answerTime" 
+                                    class="w-full p-3 text-xl font-extrabold bg-indigo-50/50 border-2 border-indigo-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 text-indigo-900">
+                            </div>
+                        </div>
+
+                        <!-- 必要時速の予想入力 -->
+                        <div v-if="form.mode === 'speed'">
+                            <label class="block text-xs font-extrabold text-slate-700 mb-1">
+                                <i class="fa-solid fa-gauge-high text-indigo-500 mr-1"></i>
+                                あなたが計算した【必要な時速 (km/h)】
+                            </label>
+                            <div class="relative">
+                                <input type="number" v-model.number="student.answerSpeed" placeholder="例: 40" step="0.5" 
+                                    class="w-full p-3 text-xl font-extrabold bg-indigo-50/50 border-2 border-indigo-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 text-indigo-900">
+                                <span class="absolute right-4 top-4 font-bold text-slate-400">km/h</span>
+                            </div>
+                        </div>
+
+                        <!-- 自分の計算式メモ -->
+                        <div>
+                            <label class="block text-xs font-extrabold text-slate-700 mb-1">
+                                <i class="fa-solid fa-calculator text-indigo-500 mr-1"></i>
+                                あなたが作った計算式（メモ）
+                            </label>
+                            <input type="text" v-model="student.formulaMemo" placeholder="例: 12 ÷ 15 = 0.8時間(48分), 14:00 - 48分 = 13:12" 
+                                class="w-full p-2.5 text-xs bg-slate-50 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-800 font-medium">
+                        </div>
+
+                        <!-- 答え合わせボタン -->
+                        <button @click="evaluateAnswer" 
+                            class="w-full py-3.5 px-4 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-black text-base rounded-xl shadow-lg shadow-teal-500/25 transition active:scale-[0.99] flex items-center justify-center gap-2">
+                            <i class="fa-solid fa-circle-check text-xl"></i>
+                            <span>答え合わせ（判定する）</span>
+                        </button>
+                    </div>
+
+                </div>
+
+                <!-- 右側：判定結果 ＆ 丁寧な解説・途中式 -->
+                <div class="lg:col-span-6 space-y-5">
+                    
+                    <!-- まだ採点していない場合 -->
+                    <div v-if="!isEvaluated" class="bg-white p-8 rounded-2xl shadow-sm border border-slate-200 text-center py-16 space-y-3">
+                        <div class="w-16 h-16 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center text-3xl mx-auto mb-2 animate-bounce">
+                            <i class="fa-solid fa-magnifying-glass"></i>
+                        </div>
+                        <h3 class="text-base font-extrabold text-slate-800">自分の答えを入力して「答え合わせ」を押してね！</h3>
+                        <p class="text-xs text-slate-500 max-w-xs mx-auto">
+                            計算した答えを入力すると、判定結果と「み・は・じ」を使った詳しい解説・途中式が表示されます。
+                        </p>
+                    </div>
+
+                    <!-- 採点結果カード -->
+                    <div v-else class="space-y-5">
+                        
+                        <!-- 判定結果ヘッダー -->
+                        <div :class="evaluation.statusClass" class="p-6 rounded-2xl border-2 shadow-sm text-center relative overflow-hidden transition-all">
+                            <div class="text-4xl mb-2">{{ evaluation.icon }}</div>
+                            <h3 class="text-xl font-black mb-1">{{ evaluation.title }}</h3>
+                            <p class="text-xs font-bold opacity-90">{{ evaluation.message }}</p>
+
+                            <!-- 正解との比較 -->
+                            <div class="mt-3 pt-3 border-t border-black/10 flex justify-center items-center gap-4 text-xs font-bold">
+                                <div>あなたの答え: <span class="text-sm underline">{{ evaluation.userDisplay }}</span></div>
+                                <div>正しい答え: <span class="text-sm underline">{{ evaluation.correctDisplay }}</span></div>
+                            </div>
+                        </div>
+
+                        <!-- 解説カード：何を求める計算か ＆ 途中の式 -->
+                        <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 space-y-4">
+                            <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+                                <h3 class="text-sm font-black text-slate-800 flex items-center gap-2">
+                                    <i class="fa-solid fa-lightbulb text-amber-500"></i>
+                                    この問題の解説と途中式
+                                </h3>
+                                <span class="text-[11px] font-bold bg-amber-50 text-amber-700 px-2.5 py-1 rounded-full border border-amber-200">
+                                    公式：{{ calcSteps.formulaName }}
+                                </span>
+                            </div>
+
+                            <!-- 何を求めるのかの明記 -->
+                            <div class="bg-blue-50/80 border border-blue-200 p-3.5 rounded-xl text-xs space-y-1">
+                                <span class="font-extrabold text-blue-900 block flex items-center gap-1">
+                                    <i class="fa-solid fa-bullseye text-blue-600"></i> 何を求める計算？
+                                </span>
+                                <p class="text-blue-800 font-bold leading-relaxed">{{ calcSteps.goalDescription }}</p>
+                            </div>
+
+                            <!-- 3ステップ途中式 -->
+                            <div class="space-y-3 pt-1">
+                                
+                                <!-- ステップ1: 純移動時間 -->
+                                <div class="p-3.5 bg-slate-50 rounded-xl border border-slate-200 text-xs space-y-1.5">
+                                    <div class="flex justify-between font-bold text-slate-700">
+                                        <span>【ステップ1】純移動時間の計算</span>
+                                        <span class="text-blue-600 font-extrabold">{{ calcSteps.step1Result }}</span>
+                                    </div>
+                                    <p class="text-slate-700 font-mono bg-white p-2.5 rounded-lg border border-slate-200 font-bold">
+                                        {{ calcSteps.step1Formula }}
+                                    </p>
+                                    <p class="text-[11px] text-slate-500">{{ calcSteps.step1Explain }}</p>
+                                </div>
+
+                                <!-- ステップ2: 休憩・準備の合算 -->
+                                <div v-if="form.restMinutes > 0 || form.prepMinutes > 0" class="p-3.5 bg-slate-50 rounded-xl border border-slate-200 text-xs space-y-1.5">
+                                    <div class="flex justify-between font-bold text-slate-700">
+                                        <span>【ステップ2】休憩・準備時間をあわせた合計時間</span>
+                                        <span class="text-indigo-600 font-extrabold">{{ calcSteps.step2Result }}</span>
+                                    </div>
+                                    <p class="text-slate-700 font-mono bg-white p-2.5 rounded-lg border border-slate-200 font-bold">
+                                        {{ calcSteps.step2Formula }}
+                                    </p>
+                                </div>
+
+                                <!-- ステップ3: 最終的な答え -->
+                                <div class="p-3.5 bg-amber-50/70 rounded-xl border border-amber-200 text-xs space-y-1.5">
+                                    <div class="flex justify-between font-bold text-amber-900">
+                                        <span>【ステップ3】最終的な答えの計算</span>
+                                        <span class="text-amber-700 font-black text-sm">{{ calcSteps.step3Result }}</span>
+                                    </div>
+                                    <p class="text-amber-900 font-mono bg-white p-2.5 rounded-lg border border-amber-200 font-bold">
+                                        {{ calcSteps.step3Formula }}
+                                    </p>
+                                </div>
+
+                            </div>
+
+                            <!-- 生徒のメモ -->
+                            <div v-if="student.formulaMemo" class="p-3 bg-slate-100 rounded-xl text-xs space-y-1">
+                                <span class="font-bold text-slate-600 block">✏️ あなたの書いた式メモ:</span>
+                                <p class="text-slate-800 font-mono italic">{{ student.formulaMemo }}</p>
+                            </div>
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </div>
+        </div>
+
+        <!-- ========================================================= -->
+        <!-- モード2：実用ルート計算（出発地・目的地地図検索）               -->
+        <!-- ========================================================= -->
+        <div v-if="mainMode === 'calculator'" class="space-y-6">
+            
+            <div class="grid grid-cols-3 gap-2 bg-white p-2 rounded-2xl shadow-sm border border-slate-200 text-xs sm:text-sm font-bold">
+                <button @click="form.mode = 'arrival'" 
+                    :class="form.mode === 'arrival' ? 'bg-blue-600 text-white shadow' : 'text-slate-600 hover:text-slate-900'"
+                    class="py-2.5 px-2 rounded-xl transition text-center flex items-center justify-center gap-1.5">
+                    <i class="fa-solid fa-flag-checkered"></i> 到着時刻から逆算
+                </button>
+                <button @click="form.mode = 'departure'" 
+                    :class="form.mode === 'departure' ? 'bg-blue-600 text-white shadow' : 'text-slate-600 hover:text-slate-900'"
+                    class="py-2.5 px-2 rounded-xl transition text-center flex items-center justify-center gap-1.5">
+                    <i class="fa-solid fa-location-dot"></i> 出発時刻から順算
+                </button>
+                <button @click="form.mode = 'speed'" 
+                    :class="form.mode === 'speed' ? 'bg-blue-600 text-white shadow' : 'text-slate-600 hover:text-slate-900'"
+                    class="py-2.5 px-2 rounded-xl transition text-center flex items-center justify-center gap-1.5">
+                    <i class="fa-solid fa-gauge-high"></i> 必要時速を計算
+                </button>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                <!-- 入力パネル -->
+                <div class="lg:col-span-5 bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-4">
+                    <h2 class="text-sm font-black text-slate-800 border-b border-slate-100 pb-2">🗺️ 地点・移動条件の設定</h2>
+                    
+                    <div class="space-y-3 bg-slate-50 p-3.5 rounded-xl border border-slate-200">
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 mb-1">📍 出発地</label>
+                            <input type="text" v-model="form.originName" @blur="onLocationInputBlur" placeholder="例: 東京駅" class="w-full p-2 text-xs border rounded-lg bg-white font-bold">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 mb-1">🏁 目的地</label>
+                            <input type="text" v-model="form.destinationName" @blur="onLocationInputBlur" placeholder="例: 大阪駅" class="w-full p-2 text-xs border rounded-lg bg-white font-bold">
+                        </div>
+                        <button @click="searchDistance" :disabled="isSearchingDistance" class="w-full py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 font-bold text-xs rounded-lg flex items-center justify-center gap-1 transition">
+                            <i class="fa-solid fa-magnifying-glass-location" :class="{'fa-spin': isSearchingDistance}"></i> 地図から距離を自動検索
+                        </button>
+                    </div>
+
+                    <div class="space-y-3 text-xs">
+                        <div>
+                            <label class="block font-bold mb-1">移動距離 (km)</label>
+                            <input type="number" v-model.number="form.distance" min="0.1" step="0.5" class="w-full p-2 border rounded-lg font-bold">
+                        </div>
+                        <div v-if="form.mode !== 'speed'">
+                            <label class="block font-bold mb-1">移動速度 (時速 km/h)</label>
+                            <input type="number" v-model.number="form.speed" min="1" step="1" class="w-full p-2 border rounded-lg font-bold">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 結果表示パネル -->
+                <div class="lg:col-span-7 bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-4">
+                    <h2 class="text-sm font-black text-slate-800 border-b border-slate-100 pb-2">⏱️ 移動スケジュール計算結果</h2>
+                    
+                    <div class="grid grid-cols-2 gap-4 text-center">
+                        <div class="p-4 bg-blue-50 rounded-xl border border-blue-200">
+                            <span class="text-xs font-bold text-blue-600">出発予定時刻</span>
+                            <div class="text-xl font-black text-blue-900 mt-1">{{ realResult.depTimeDisplay }}</div>
+                        </div>
+                        <div class="p-4 bg-emerald-50 rounded-xl border border-emerald-200">
+                            <span class="text-xs font-bold text-emerald-600">到着予定時刻</span>
+                            <div class="text-xl font-black text-emerald-900 mt-1">{{ realResult.arrTimeDisplay }}</div>
+                        </div>
+                    </div>
+
+                    <div class="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-2 text-xs">
+                        <div class="flex justify-between">
+                            <span class="text-slate-500">純移動時間:</span>
+                            <span class="font-bold">{{ realResult.travelHoursMinutes }}</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-slate-500">合計所要時間 (休憩含む):</span>
+                            <span class="font-bold">{{ realResult.totalHoursMinutes }}</span>
+                        </div>
+                        <div class="flex justify-between" v-if="form.mode === 'speed'">
+                            <span class="text-slate-500">必要な平均時速:</span>
+                            <span class="font-black text-indigo-600 text-sm">{{ realResult.requiredSpeed }} km/h</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Vue 3 アプリケーションロジック -->
+    <script>
+        const { createApp, ref, computed, reactive, onMounted } = Vue;
+
+        createApp({
+            setup() {
+                const mainMode = ref('student');
+
+                // 条件入力データ
+                const form = reactive({
+                    mode: 'arrival', // arrival, departure, speed
+                    originName: '学校',
+                    destinationName: '市民公園',
+                    distance: 12,
+                    speed: 15,
+                    targetArrivalTime: '14:00',
+                    targetDepartureTime: '09:00',
+                    restMinutes: 10,
+                    prepMinutes: 10,
+                });
+
+                // 生徒入力解答
+                const student = reactive({
+                    answerTime: '12:52',
+                    answerSpeed: 15,
+                    formulaMemo: '12 ÷ 15 = 0.8時間(48分), 48分 + 20分 = 68分, 14:00 - 1時間8分 = 12:52'
+                });
+
+                const isEvaluated = ref(false);
+                const isSearchingDistance = ref(false);
+                const searchError = ref('');
+                const distanceSuccessMsg = ref('');
+
+                // プリセット適用
+                const applyPreset = (orig, dest, dist) => {
+                    form.originName = orig;
+                    form.destinationName = dest;
+                    form.distance = dist;
+                    searchError.value = '';
+                    distanceSuccessMsg.value = `プリセットから距離を設定しました (${dist} km)`;
+                    isEvaluated.value = false;
+                };
+
+                // 地名入力変更時の自動検索トリガー
+                let searchDebounce = null;
+                const onLocationInputBlur = () => {
+                    if (form.originName && form.destinationName) {
+                        if (searchDebounce) clearTimeout(searchDebounce);
+                        searchDebounce = setTimeout(() => {
+                            searchDistance();
+                        }, 500);
+                    }
+                };
+
+                // 出発地・目的地からオープンストリートマップ（Nominatim + OSRM）で距離検索
+                const searchDistance = async () => {
+                    if (!form.originName || !form.destinationName) {
+                        searchError.value = '出発地と到着地の両方を入力してください。';
+                        return;
+                    }
+                    isSearchingDistance.value = true;
+                    searchError.value = '';
+                    distanceSuccessMsg.value = '';
+
+                    try {
+                        const q1 = encodeURIComponent(form.originName);
+                        const q2 = encodeURIComponent(form.destinationName);
+
+                        const [res1, res2] = await Promise.all([
+                            fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${q1}&limit=1`).then(r => r.json()),
+                            fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${q2}&limit=1`).then(r => r.json())
+                        ]);
+
+                        if (!res1 || res1.length === 0) {
+                            throw new Error(`「${form.originName}」の位置が見つかりませんでした。都市名や駅名を含めてみてください。`);
+                        }
+                        if (!res2 || res2.length === 0) {
+                            throw new Error(`「${form.destinationName}」の位置が見つかりませんでした。都市名や駅名を含めてみてください。`);
+                        }
+
+                        const lon1 = res1[0].lon, lat1 = res1[0].lat;
+                        const lon2 = res2[0].lon, lat2 = res2[0].lat;
+
+                        // OSRM ルート検索API
+                        const routeRes = await fetch(`https://router.project-osrm.org/route/v1/driving/${lon1},${lat1};${lon2},${lat2}?overview=false`);
+                        const routeData = await routeRes.json();
+
+                        if (routeData.routes && routeData.routes.length > 0) {
+                            const km = (routeData.routes[0].distance / 1000).toFixed(1);
+                            form.distance = parseFloat(km);
+                            distanceSuccessMsg.value = `地図の道路ルートから距離を算出しました (${form.distance} km)`;
+                        } else {
+                            // 直線距離フォールバック
+                            const km = haversineDistance(parseFloat(lat1), parseFloat(lon1), parseFloat(lat2), parseFloat(lon2)).toFixed(1);
+                            form.distance = parseFloat(km);
+                            distanceSuccessMsg.value = `直線距離から算出しました (${form.distance} km)`;
+                        }
+                        isEvaluated.value = false;
+                    } catch (err) {
+                        searchError.value = err.message || '距離の自動取得に失敗しました。数値入力をご利用ください。';
+                    } finally {
+                        isSearchingDistance.value = false;
+                    }
+                };
+
+                // ハバーサイン直線距離計算
+                const haversineDistance = (lat1, lon1, lat2, lon2) => {
+                    const R = 6371;
+                    const dLat = (lat2 - lat1) * Math.PI / 180;
+                    const dLon = (lon2 - lon1) * Math.PI / 180;
+                    const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                              Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                              Math.sin(dLon/2) * Math.sin(dLon/2);
+                    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+                    return R * c;
+                };
+
+                // 問題モード変更
+                const setProblemType = (mode) => {
+                    form.mode = mode;
+                    isEvaluated.value = false;
+                };
+
+                // ランダム練習問題の生成
+                const generateRandomProblem = () => {
+                    const places = [
+                        { orig: '学校', dest: '市民公園', dist: 12, speed: 15 },
+                        { orig: '自宅', dest: '中央図書館', dist: 6, speed: 12 },
+                        { orig: '東京駅', dest: '横浜駅', dist: 28, speed: 40 },
+                        { orig: '新宿駅', dest: '高尾山', dist: 45, speed: 60 },
+                        { orig: '家', dest: '隣町のサッカー場', dist: 18, speed: 18 }
+                    ];
+                    const selected = places[Math.floor(Math.random() * places.length)];
+                    form.originName = selected.orig;
+                    form.destinationName = selected.dest;
+                    form.distance = selected.dist;
+                    form.speed = selected.speed;
+                    form.restMinutes = Math.floor(Math.random() * 3) * 10; // 0, 10, 20
+                    form.prepMinutes = 10;
+                    form.targetArrivalTime = '14:00';
+                    form.targetDepartureTime = '09:00';
+                    isEvaluated.value = false;
+                    distanceSuccessMsg.value = '新しい練習問題を作成しました！';
+                };
+
+                // 問題ラベル
+                const problemTypeLabel = computed(() => {
+                    if (form.mode === 'arrival') return '① 到着希望時刻から【出発時刻】を求める';
+                    if (form.mode === 'departure') return '② 出発時刻から【到着時刻】を求める';
+                    return '③ 指定時間に間に合う【必要な時速】を求める';
+                });
+
+                // 文章題テキストの生成
+                const generatedProblemText = computed(() => {
+                    const totalExtra = form.restMinutes + form.prepMinutes;
+                    const extraStr = totalExtra > 0 ? `（途中休憩・準備などで合計 ${totalExtra} 分間止まります）` : '';
+                    
+                    if (form.mode === 'arrival') {
+                        return `${form.originName}から${form.destinationName}まで距離は ${form.distance} km あります。時速 ${form.speed} km/h で移動し、${form.targetArrivalTime} に到着したいとき${extraStr}、何時何分に出発すればよいでしょうか？`;
+                    } else if (form.mode === 'departure') {
+                        return `${form.originName}を ${form.targetDepartureTime} に出発します。${form.destinationName}までの距離は ${form.distance} km で、時速 ${form.speed} km/h で移動するとき${extraStr}、何時何分に到着するでしょうか？`;
+                    } else {
+                        return `${form.originName}を ${form.targetDepartureTime} に出発し、${form.destinationName}（${form.distance} km先）へ ${form.targetArrivalTime} に到着したいです${extraStr}。平均時速何 km/h で走ればよいでしょうか？`;
+                    }
+                });
+
+                // 計算ロジック・ステップ解説
+                const calcSteps = computed(() => {
+                    const dist = form.distance || 1;
+                    const spd = form.speed || 1;
+                    const rest = form.restMinutes || 0;
+                    const prep = form.prepMinutes || 0;
+                    const totalExtra = rest + prep;
+
+                    // 純移動時間 (分)
+                    const travelMinutes = (dist / spd) * 60;
+                    const totalMinutes = Math.round(travelMinutes + totalExtra);
+
+                    if (form.mode === 'arrival') {
+                        // 到着時刻から逆算
+                        const [arrH, arrM] = form.targetArrivalTime.split(':').map(Number);
+                        const targetArrInMins = arrH * 60 + arrM;
+                        const depInMins = (targetArrInMins - totalMinutes + 1440) % 1440;
+                        const depH = String(Math.floor(depInMins / 60)).padStart(2, '0');
+                        const depM = String(depInMins % 60).padStart(2, '0');
+                        const correctStr = `${depH}:${depM}`;
+
+                        return {
+                            formulaName: '時間 ＝ 距離 ÷ 速さ（み・は・じ）',
+                            goalDescription: `目標の「${form.targetArrivalTime}」に${form.destinationName}へ到着するために、いつ${form.originName}を出発すべきか（必須出発時刻）`,
+                            step1Result: `${Math.round(travelMinutes)} 分 (${(dist/spd).toFixed(2)} 時間)`,
+                            step1Formula: `距離 ${dist} km ÷ 時速 ${spd} km/h ＝ ${(dist/spd).toFixed(2)} 時間`,
+                            step1Explain: `1時間は60分なので、${(dist/spd).toFixed(2)} × 60 ＝ 約 ${Math.round(travelMinutes)} 分間の純粋な移動が必要です。`,
+                            step2Result: `合計 ${totalMinutes} 分 (${Math.floor(totalMinutes/60)}時間 ${totalMinutes%60}分)`,
+                            step2Formula: `移動時間 ${Math.round(travelMinutes)} 分 ＋ 休憩・準備 ${totalExtra} 分 ＝ ${totalMinutes} 分`,
+                            step3Result: `出発時刻： ${correctStr}`,
+                            step3Formula: `到着希望 ${form.targetArrivalTime} － 所要時間 ${totalMinutes}分 ＝ 【 ${correctStr} 】`,
+                            correctValue: correctStr
+                        };
+                    } else if (form.mode === 'departure') {
+                        // 出発時刻から順算
+                        const [depH, depM] = form.targetDepartureTime.split(':').map(Number);
+                        const depInMins = depH * 60 + depM;
+                        const arrInMins = (depInMins + totalMinutes) % 1440;
+                        const arrH = String(Math.floor(arrInMins / 60)).padStart(2, '0');
+                        const arrM = String(arrInMins % 60).padStart(2, '0');
+                        const correctStr = `${arrH}:${arrM}`;
+
+                        return {
+                            formulaName: '時間 ＝ 距離 ÷ 速さ',
+                            goalDescription: `${form.targetDepartureTime}に${form.originName}を出発したとき、${form.destinationName}へ到着する予定時刻`,
+                            step1Result: `${Math.round(travelMinutes)} 分 (${(dist/spd).toFixed(2)} 時間)`,
+                            step1Formula: `距離 ${dist} km ÷ 時速 ${spd} km/h ＝ ${(dist/spd).toFixed(2)} 時間`,
+                            step1Explain: `1時間は60分なので、移動に ${Math.round(travelMinutes)} 分かかります。`,
+                            step2Result: `合計 ${totalMinutes} 分 (${Math.floor(totalMinutes/60)}時間 ${totalMinutes%60}分)`,
+                            step2Formula: `移動時間 ${Math.round(travelMinutes)} 分 ＋ 休憩・準備 ${totalExtra} 分 ＝ ${totalMinutes} 分`,
+                            step3Result: `到着時刻： ${correctStr}`,
+                            step3Formula: `出発時刻 ${form.targetDepartureTime} ＋ 所要時間 ${totalMinutes}分 ＝ 【 ${correctStr} 】`,
+                            correctValue: correctStr
+                        };
+                    } else {
+                        // 必要な時速
+                        const [depH, depM] = form.targetDepartureTime.split(':').map(Number);
+                        const [arrH, arrM] = form.targetArrivalTime.split(':').map(Number);
+                        let windowInMins = (arrH * 60 + arrM) - (depH * 60 + depM);
+                        if (windowInMins <= 0) windowInMins += 1440;
+
+                        const netMoveMins = Math.max(1, windowInMins - totalExtra);
+                        const reqSpeed = (dist / (netMoveMins / 60));
+
+                        return {
+                            formulaName: '速さ ＝ 距離 ÷ 時間',
+                            goalDescription: `${form.targetDepartureTime}〜${form.targetArrivalTime}までの時間内で到着するために必要な平均時速 (km/h)`,
+                            step1Result: `利用可能時間: ${windowInMins} 分`,
+                            step1Formula: `到着 ${form.targetArrivalTime} － 出発 ${form.targetDepartureTime} ＝ ${windowInMins} 分`,
+                            step1Explain: `休憩・準備の ${totalExtra} 分を引くと、純粋に移動に使える時間は ${netMoveMins} 分 (${(netMoveMins/60).toFixed(2)} 時間) です。`,
+                            step2Result: `純移動時間: ${netMoveMins} 分 (${(netMoveMins/60).toFixed(2)} 時間)`,
+                            step2Formula: `全体の時間 ${windowInMins} 分 － 休憩等 ${totalExtra} 分 ＝ ${netMoveMins} 分`,
+                            step3Result: `必要時速： ${reqSpeed.toFixed(1)} km/h`,
+                            step3Formula: `距離 ${dist} km ÷ 移動時間 ${(netMoveMins/60).toFixed(2)} 時間 ＝ 【 ${reqSpeed.toFixed(1)} km/h 】`,
+                            correctValue: parseFloat(reqSpeed.toFixed(1))
+                        };
+                    }
+                });
+
+                // 採点評価
+                const evaluation = computed(() => {
+                    const steps = calcSteps.value;
+
+                    if (form.mode === 'arrival' || form.mode === 'departure') {
+                        const correctStr = steps.correctValue;
+                        const userStr = student.answerTime || '未入力';
+
+                        if (!student.answerTime) {
+                            return {
+                                statusClass: 'bg-slate-100 border-slate-300 text-slate-700',
+                                icon: '❓',
+                                title: '答えを入力してね',
+                                message: '時間を指定して答え合わせを押してください。',
+                                userDisplay: '未入力',
+                                correctDisplay: correctStr
+                            };
+                        }
+
+                        // 時刻の差分(分)計算
+                        const [uH, uM] = userStr.split(':').map(Number);
+                        const [cH, cM] = correctStr.split(':').map(Number);
+                        const diffMins = Math.abs((uH * 60 + uM) - (cH * 60 + cM));
+
+                        if (diffMins === 0) {
+                            return {
+                                statusClass: 'bg-emerald-500 text-white border-emerald-600',
+                                icon: '🎯',
+                                title: 'ピタリ大正解！すごいです！',
+                                message: '計算式も時間の繰り上がり・繰り下がりも完璧です！',
+                                userDisplay: userStr,
+                                correctDisplay: correctStr
+                            };
+                        } else if (diffMins <= 5) {
+                            return {
+                                statusClass: 'bg-amber-500 text-white border-amber-600',
+                                icon: '⭕️',
+                                title: 'かなりおしい！ほぼ正解です！',
+                                message: `誤差はたったの ${diffMins} 分です。計算ミスをもう一度チェックしよう！`,
+                                userDisplay: userStr,
+                                correctDisplay: correctStr
+                            };
+                        } else {
+                            return {
+                                statusClass: 'bg-rose-500 text-white border-rose-600',
+                                icon: '❌',
+                                title: 'ざんねん！もう一度挑戦しよう！',
+                                message: `正解との差は ${diffMins} 分でした。途中の計算式を確認してみてね。`,
+                                userDisplay: userStr,
+                                correctDisplay: correctStr
+                            };
+                        }
+                    } else {
+                        // 時速の判定
+                        const correctSpd = steps.correctValue;
+                        const userSpd = student.answerSpeed;
+
+                        if (userSpd === null || userSpd === undefined || isNaN(userSpd)) {
+                            return {
+                                statusClass: 'bg-slate-100 border-slate-300 text-slate-700',
+                                icon: '❓',
+                                title: '時速を入力してね',
+                                message: '計算した時速を入力してください。',
+                                userDisplay: '未入力',
+                                correctDisplay: `${correctSpd} km/h`
+                            };
+                        }
+
+                        const diff = Math.abs(userSpd - correctSpd);
+                        if (diff <= 0.5) {
+                            return {
+                                statusClass: 'bg-emerald-500 text-white border-emerald-600',
+                                icon: '🎯',
+                                title: 'ピタリ大正解！大満足です！',
+                                message: '必要な時速の計算が正確にできています！',
+                                userDisplay: `${userSpd} km/h`,
+                                correctDisplay: `${correctSpd} km/h`
+                            };
+                        } else if (diff <= 3.0) {
+                            return {
+                                statusClass: 'bg-amber-500 text-white border-amber-600',
+                                icon: '⭕️',
+                                title: '惜しい！かなり近い数値です！',
+                                message: `誤差 ${diff.toFixed(1)} km/h です。小数点の四捨五入を確認しよう！`,
+                                userDisplay: `${userSpd} km/h`,
+                                correctDisplay: `${correctSpd} km/h`
+                            };
+                        } else {
+                            return {
+                                statusClass: 'bg-rose-500 text-white border-rose-600',
+                                icon: '❌',
+                                title: 'ざんねん！もう一度やり直してみよう！',
+                                message: '時間の割り算で単位が「分」のままになっていないか見直そう。',
+                                userDisplay: `${userSpd} km/h`,
+                                correctDisplay: `${correctSpd} km/h`
+                            };
+                        }
+                    }
+                });
+
+                // 答え合わせ実行ボタンクリック
+                const evaluateAnswer = () => {
+                    isEvaluated.value = true;
+                };
+
+                // 実用モード用リアルタイム計算プロパティ
+                const realResult = computed(() => {
+                    const steps = calcSteps.value;
+                    const travelMins = Math.round((form.distance / (form.speed || 1)) * 60);
+                    const totalMins = travelMins + form.restMinutes + form.prepMinutes;
+
+                    return {
+                        depTimeDisplay: form.mode === 'arrival' ? steps.correctValue : form.targetDepartureTime,
+                        arrTimeDisplay: form.mode === 'departure' ? steps.correctValue : form.targetArrivalTime,
+                        travelHoursMinutes: `${Math.floor(travelMins/60)}時間 ${travelMins%60}分`,
+                        totalHoursMinutes: `${Math.floor(totalMins/60)}時間 ${totalMins%60}分`,
+                        requiredSpeed: steps.correctValue
+                    };
+                });
+
+                return {
+                    mainMode,
+                    form,
+                    student,
+                    isEvaluated,
+                    isSearchingDistance,
+                    searchError,
+                    distanceSuccessMsg,
+                    applyPreset,
+                    onLocationInputBlur,
+                    searchDistance,
+                    setProblemType,
+                    generateRandomProblem,
+                    problemTypeLabel,
+                    generatedProblemText,
+                    calcSteps,
+                    evaluation,
+                    evaluateAnswer,
+                    realResult
+                };
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>
